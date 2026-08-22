@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SP Instrument Locator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0d1b2a; color: #e0e8f0; min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg, #1a3a5c 0%, #0d2640 100%);
+    border-bottom: 3px solid #2d7dd2;
+    padding: 18px 20px 14px;
+    text-align: center;
+  }
+  header h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: 0.05em; color: #fff; }
+  header p { font-size: 0.8rem; color: #7aafd4; margin-top: 3px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .search-wrap {
+    padding: 16px;
+    background: #112036;
+    position: sticky; top: 0; z-index: 10;
+    border-bottom: 1px solid #1e3a5a;
+  }
+  .search-wrap input {
+    width: 100%; padding: 12px 16px;
+    background: #1a3352; border: 2px solid #2d5f9a;
+    border-radius: 8px; color: #e0e8f0;
+    font-size: 1rem; outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-wrap input:focus { border-color: #2d7dd2; }
+  .search-wrap input::placeholder { color: #4a7aaa; }
+
+  .filters {
+    display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 5px 12px; border-radius: 20px; border: 1px solid #2d5f9a;
+    background: transparent; color: #7aafd4; font-size: 0.75rem;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .filter-btn.active, .filter-btn:hover {
+    background: #2d7dd2; border-color: #2d7dd2; color: #fff;
+  }
+
+  #results-count {
+    padding: 8px 16px; font-size: 0.75rem; color: #4a7aaa;
+  }
+
+  #results { padding: 0 12px 80px; }
+
+  .result-card {
+    background: #152a45; border: 1px solid #1e3f6a;
+    border-radius: 10px; margin-bottom: 10px; padding: 14px;
+    transition: border-color 0.15s;
+  }
+  .result-card:hover { border-color: #2d7dd2; }
+
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .item-name { font-weight: 700; font-size: 0.95rem; color: #ddeeff; line-height: 1.3; flex: 1; }
+  .qty-badge {
+    background: #1e3f6a; border: 1px solid #2d5f9a;
+    border-radius: 5px; padding: 2px 8px;
+    font-size: 0.7rem; color: #7aafd4; white-space: nowrap;
+  }
+  .qty-badge.overflow { border-color: #f0a500; color: #f0c040; background: #2a2000; }
+
+  .location-row { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .loc-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #0d2640; border: 1px solid #1a4a7a;
+    border-radius: 5px; padding: 3px 9px; font-size: 0.72rem;
+  }
+  .hanel-label { color: #2d7dd2; font-weight: 700; }
+  .shelf-label { color: #7aafd4; }
+  .category-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  .cat-tag {
+    font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
+    padding: 2px 7px; border-radius: 10px; font-weight: 700;
+  }
+  .cat-neuro { background: #1a0a3a; color: #9d60f0; border: 1px solid #5a2ab0; }
+  .cat-ortho { background: #0a2a0a; color: #40c060; border: 1px solid #1a6a2a; }
+  .cat-gen   { background: #1a1a00; color: #d0a020; border: 1px solid #6a5000; }
+  .cat-cvts  { background: #2a0a0a; color: #f06060; border: 1px solid #8a1a1a; }
+  .cat-peelpacks { background: #0a1a2a; color: #40a0d0; border: 1px solid #1a5a8a; }
+  .cat-eye   { background: #1a0a1a; color: #d060d0; border: 1px solid #6a1a6a; }
+  .cat-ent   { background: #1a1a0a; color: #c0c040; border: 1px solid #6a6a00; }
+  .cat-vascular { background: #2a0a0a; color: #f08040; border: 1px solid #8a3000; }
+  .cat-lap   { background: #0a2a2a; color: #40d0c0; border: 1px solid #006a60; }
+  .cat-spine { background: #1a0a2a; color: #a060e0; border: 1px solid #501a8a; }
+  .cat-gyn   { background: #2a0a1a; color: #f060a0; border: 1px solid #a0205a; }
+  .cat-uro   { background: #0a1a2a; color: #40c0f0; border: 1px solid #0060a0; }
+  .cat-robotics { background: #1a0a2a; color: #c080f0; border: 1px solid #6020b0; }
+
+  .no-results {
+    text-align: center; padding: 50px 20px; color: #4a7aaa;
+  }
+  .no-results .icon { font-size: 3rem; margin-bottom: 12px; }
+
+  mark { background: #2d7dd2; color: #fff; border-radius: 2px; padding: 0 1px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏥 SP Instrument Locator</h1>
+  <p>Sterile Processing · Hanel Location Search</p>
+</header>
+
+<div class="search-wrap">
+  <input type="search" id="searchInput" placeholder="Search instrument, set, tray name…" autofocus autocomplete="off">
+  <div class="filters" id="filterBar">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="neuro">Neuro</button>
+    <button class="filter-btn" data-filter="ortho">Ortho</button>
+    <button class="filter-btn" data-filter="gen">General</button>
+    <button class="filter-btn" data-filter="cvts">CVTS</button>
+    <button class="filter-btn" data-filter="peelpacks">Peel-Packs</button>
+    <button class="filter-btn" data-filter="spine">Spine</button>
+    <button class="filter-btn" data-filter="vascular">Vascular</button>
+    <button class="filter-btn" data-filter="ent">ENT</button>
+    <button class="filter-btn" data-filter="lap">Lap</button>
+    <button class="filter-btn" data-filter="gyn">Gyn</button>
+    <button class="filter-btn" data-filter="uro">Uro</button>
+    <button class="filter-btn" data-filter="robotics">Robotics</button>
+    <button class="filter-btn" data-filter="eye">Eye</button>
+  </div>
+</div>
+
+<div id="results-count"></div>
+<div id="results"></div>
+
+<script>
+const DB = [
+  // ══════════════════════════════════════════════
+  // HANEL 1 SIDE A — NEURO (Shelves 1A–6A)
+  // ══════════════════════════════════════════════
+  { name:"Set Specials Dr Pool", hanel:"1", side:"A", shelf:"1A", qty:"4", cats:["neuro"] },
+  { name:"Set Specials Dr Cram", hanel:"1", side:"A", shelf:"1A", qty:"4", cats:["neuro"] },
+  { name:"Set Specials Dr Nundkumar", hanel:"1", side:"A", shelf:"1A", qty:"4", cats:["neuro"] },
+  { name:"Set Specials Dr Cabbell", hanel:"1", side:"A", shelf:"1A", qty:"4", cats:["neuro"] },
+  { name:"Set Special Dr Janjua", hanel:"1", side:"A", shelf:"1A", qty:"4", cats:["neuro"] },
+  { name:"Set Curettes Dr Ditty", hanel:"1", side:"A", shelf:"1A", qty:"2", cats:["neuro"] },
+  { name:"Set Leibinger Suctions Dr Janjua", hanel:"1", side:"A", shelf:"1A", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Cable System (Songer)", hanel:"1", side:"A", shelf:"1A", qty:"1", cats:["neuro"] },
+
+  { name:"Set Neuro Silverglide Bipolar Forceps", hanel:"1", side:"A", shelf:"2A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro General Dr Ostergard", hanel:"1", side:"A", shelf:"2A", qty:"4", cats:["neuro"] },
+  { name:"Set Specials Dr Stern", hanel:"1", side:"A", shelf:"2A", qty:"3", cats:["neuro"] },
+  { name:"Set Micro Scissors Dr Ditty", hanel:"1", side:"A", shelf:"2A", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Scoville Retractor", hanel:"1", side:"A", shelf:"2A", qty:"1", cats:["neuro"] },
+  { name:"Set Fiducial Dr Dawley", hanel:"1", side:"A", shelf:"2A", qty:"1", cats:["neuro"] },
+  { name:"Set Knot Pusher Trial Dr Cabbell", hanel:"1", side:"A", shelf:"2A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro Trigeminal Electrode", hanel:"1", side:"A", shelf:"2A", qty:"", cats:["neuro"] },
+
+  { name:"Set Neuro McCulloch Retractor", hanel:"1", side:"A", shelf:"3A", qty:"11", cats:["neuro"] },
+  { name:"Set Neuro Thompson Anterior Cervical Retractors 1 of 2", hanel:"1", side:"A", shelf:"3A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro Thompson Anterior Cervical Blades 2 of 2", hanel:"1", side:"A", shelf:"3A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro Thompson Anterior Lumbar Retractor", hanel:"1", side:"A", shelf:"3A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro Mizuho Holder Retractor New", hanel:"1", side:"A", shelf:"3A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro Thompson Anterior Lumbar Blades", hanel:"1", side:"A", shelf:"3A", qty:"1", cats:["neuro"] },
+
+  { name:"Power CUSA Clarity", hanel:"1", side:"A", shelf:"4A", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Delta Blades", hanel:"1", side:"A", shelf:"4A", qty:"3", cats:["neuro"] },
+  { name:"Set Neuro Apfelbaum Cerebellar Retractor", hanel:"1", side:"A", shelf:"4A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro MINOP Full", hanel:"1", side:"A", shelf:"4A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro MINOP NeuroPilot", hanel:"1", side:"A", shelf:"4A", qty:"1", cats:["neuro"] },
+  { name:"Scope Neuro MINOP Backup", hanel:"1", side:"A", shelf:"4A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro Budde Halo #2", hanel:"1", side:"A", shelf:"4A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro MINOP Holding Arm", hanel:"1", side:"A", shelf:"4A", qty:"1", cats:["neuro"] },
+
+  { name:"Set Neuro Shadowline Retractor", hanel:"1", side:"A", shelf:"5A", qty:"5", cats:["neuro"] },
+  { name:"Set Neuro Thompson Retractor #1", hanel:"1", side:"A", shelf:"5A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro Thompson Retractor #2", hanel:"1", side:"A", shelf:"5A", qty:"1", cats:["neuro"] },
+
+  { name:"Power Neuro Stryker High Speed Drill", hanel:"1", side:"A", shelf:"6A", qty:"20", cats:["neuro"] },
+  { name:"Power Neuro Stryker CD4", hanel:"1", side:"A", shelf:"6A", qty:"8", cats:["neuro"] },
+  { name:"Power Neuro Stryker Micro Drill", hanel:"1", side:"A", shelf:"6A", qty:"1", cats:["neuro"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 1 SIDE A — NEURO (Shelves 7A–12A)
+  // ══════════════════════════════════════════════
+  { name:"Set Neuro X-Long Instruments", hanel:"1", side:"A", shelf:"7A", qty:"3", cats:["neuro"] },
+  { name:"Set VP Shunt", hanel:"1", side:"A", shelf:"7A", qty:"3", cats:["neuro"] },
+  { name:"Set Transsphenoidal", hanel:"1", side:"A", shelf:"7A", qty:"2", cats:["neuro"] },
+  { name:"Set Rultract Extras #1", hanel:"1", side:"A", shelf:"7A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro A Retractor", hanel:"1", side:"A", shelf:"7A", qty:"1", cats:["neuro"] },
+
+  { name:"Set Neuro Supp", hanel:"1", side:"A", shelf:"8A", qty:"13", cats:["neuro"] },
+
+  { name:"Set Craniotomy Specials", hanel:"1", side:"A", shelf:"9A", qty:"7", cats:["neuro"] },
+  { name:"Set Stryker Cranial Plating", hanel:"1", side:"A", shelf:"9A", qty:"7", cats:["neuro"] },
+  { name:"Set Neuro Medtronic NAV Cranial", hanel:"1", side:"A", shelf:"9A", qty:"2", cats:["neuro"] },
+
+  { name:"Set Craniotomy", hanel:"1", side:"A", shelf:"10A", qty:"5", cats:["neuro"] },
+  { name:"Power Neuro Stryker Sonopet iQ Handpiece", hanel:"1", side:"A", shelf:"10A", qty:"5", cats:["neuro"] },
+  { name:"Set Neuro Black Curved Kerrisons", hanel:"1", side:"A", shelf:"10A", qty:"4", cats:["neuro"] },
+  { name:"Set Stryker Cranial Mesh", hanel:"1", side:"A", shelf:"10A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro Codman Retractor", hanel:"1", side:"A", shelf:"10A", qty:"1", cats:["neuro"] },
+
+  { name:"Set Neuro Nav Spine Reference W/Perc Upgrade", hanel:"1", side:"A", shelf:"11A", qty:"4", cats:["neuro","spine"] },
+  { name:"Set Neuro NAV Awl-Tip Taps", hanel:"1", side:"A", shelf:"11A", qty:"2", cats:["neuro","spine"] },
+  { name:"Set Neuro Medtronic Nav Vertek Crani Biopsy", hanel:"1", side:"A", shelf:"11A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro Medtronic Nav Solera Taps W/Deformity Upgrade", hanel:"1", side:"A", shelf:"11A", qty:"2", cats:["neuro","spine"] },
+  { name:"Set Neuro Medtronic Nav Revision Reference", hanel:"1", side:"A", shelf:"11A", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro Medtronic Nav Solera Drivers", hanel:"1", side:"A", shelf:"11A", qty:"2", cats:["neuro","spine"] },
+
+  { name:"Set METRx II", hanel:"1", side:"A", shelf:"12A", qty:"4", cats:["neuro","spine"] },
+  { name:"Set METRx II Flex Arm & Dilators", hanel:"1", side:"A", shelf:"12A", qty:"4", cats:["neuro","spine"] },
+  { name:"Set METRx II Tubes Flat", hanel:"1", side:"A", shelf:"12A", qty:"4", cats:["neuro","spine"] },
+  { name:"Set METRx II Tubes Angled", hanel:"1", side:"A", shelf:"12A", qty:"3", cats:["neuro","spine"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 1 SIDE B — NEURO (Shelves 1B–6B)
+  // ══════════════════════════════════════════════
+  { name:"Set Neuro Lumbar Laminectomy", hanel:"1", side:"B", shelf:"1B", qty:"13", cats:["neuro","spine"] },
+  { name:"Set Specials Dr Jenkins", hanel:"1", side:"B", shelf:"1B", qty:"4", cats:["neuro"] },
+  { name:"Set Specials Dr Elsner", hanel:"1", side:"B", shelf:"1B", qty:"4", cats:["neuro"] },
+  { name:"Set Neuro Specials Dr Thomas", hanel:"1", side:"B", shelf:"1B", qty:"4", cats:["neuro"] },
+  { name:"Set Special Dr Garst", hanel:"1", side:"B", shelf:"1B", qty:"2", cats:["neuro"] },
+  { name:"Set Greenberg Retractor", hanel:"1", side:"B", shelf:"1B", qty:"2", cats:["neuro"] },
+
+  { name:"Set Neuro Endopens", hanel:"1", side:"B", shelf:"2B", qty:"2", cats:["neuro"] },
+  { name:"Set Crani Dr Ostergard", hanel:"1", side:"B", shelf:"2B", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Crani Silverglide Bipolar Forceps", hanel:"1", side:"B", shelf:"2B", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Osteotomes", hanel:"1", side:"B", shelf:"2B", qty:"1", cats:["neuro"] },
+  { name:"Set Dura Tear Repair", hanel:"1", side:"B", shelf:"2B", qty:"1", cats:["neuro"] },
+  { name:"Set Brain Cannulas", hanel:"1", side:"B", shelf:"2B", qty:"1", cats:["neuro"] },
+
+  { name:"Set Neuro Medtronic Mazor Bone Mount", hanel:"1", side:"B", shelf:"3B", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Mazor General", hanel:"1", side:"B", shelf:"3B", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Medtronic Mazor Stealth 5.5/6.0mm Drivers", hanel:"1", side:"B", shelf:"3B", qty:"2", cats:["neuro"] },
+
+  { name:"Set Caspar Retractor Dr Cabbell", hanel:"1", side:"B", shelf:"4B", qty:"1", cats:["neuro"] },
+  { name:"Set Caspar Retractor New Dr Elsner", hanel:"1", side:"B", shelf:"4B", qty:"1", cats:["neuro"] },
+  { name:"Set Caspar Retractor Dr Jenkins", hanel:"1", side:"B", shelf:"4B", qty:"1", cats:["neuro"] },
+  { name:"Set Caspar Distractor Dr Garst", hanel:"1", side:"B", shelf:"4B", qty:"1", cats:["neuro"] },
+
+  { name:"Set Versa-Trac Retractor", hanel:"1", side:"B", shelf:"5B", qty:"6", cats:["neuro","spine"] },
+  { name:"Set Neuro Medtronic NavLock", hanel:"1", side:"B", shelf:"5B", qty:"4", cats:["neuro"] },
+
+  { name:"Power Neuro Stryker High Speed Drill (overflow)", hanel:"1", side:"B", shelf:"6B", qty:"Overflow", cats:["neuro"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 1 SIDE B — NEURO (Shelves 7B–12B)
+  // ══════════════════════════════════════════════
+  { name:"Set Neuro Anterior Cervical", hanel:"1", side:"B", shelf:"7B", qty:"7", cats:["neuro","spine"] },
+  { name:"Set Aesculap Crani Micro Scissors & Pickups", hanel:"1", side:"B", shelf:"7B", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Anterior Exposure", hanel:"1", side:"B", shelf:"7B", qty:"2", cats:["neuro"] },
+
+  { name:"Power Neuro Medtronic Navigation Midas Rex", hanel:"1", side:"B", shelf:"8B", qty:"6", cats:["neuro"] },
+  { name:"Set Mizuho Head Holder", hanel:"1", side:"B", shelf:"8B", qty:"1", cats:["neuro"] },
+  { name:"Set Budde Halo Retractor Old", hanel:"1", side:"B", shelf:"8B", qty:"1", cats:["neuro"] },
+  { name:"Set Neuro Budde Halo #2", hanel:"1", side:"B", shelf:"8B", qty:"1", cats:["neuro"] },
+
+  { name:"Set Neuro Micro", hanel:"1", side:"B", shelf:"9B", qty:"17", cats:["neuro"] },
+  { name:"Set Neuro Codman Micro Karlin Curettes", hanel:"1", side:"B", shelf:"9B", qty:"11", cats:["neuro"] },
+  { name:"Set Neuro Silver SDA", hanel:"1", side:"B", shelf:"9B", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Bone Probes", hanel:"1", side:"B", shelf:"9B", qty:"5", cats:["neuro"] },
+  { name:"Set Neuro Ball Tip Nerve Hooks Blue", hanel:"1", side:"B", shelf:"9B", qty:"8", cats:["neuro"] },
+  { name:"Set Black SDAS", hanel:"1", side:"B", shelf:"9B", qty:"2", cats:["neuro"] },
+  { name:"Set Noir Suction, Ebony", hanel:"1", side:"B", shelf:"9B", qty:"1", cats:["neuro"] },
+
+  { name:"Set Neuro Dural Repair", hanel:"1", side:"B", shelf:"10B", qty:"6", cats:["neuro"] },
+  { name:"Set Rhoton Micro Dissectors", hanel:"1", side:"B", shelf:"10B", qty:"5", cats:["neuro"] },
+  { name:"Set Neuro Rhoton Suctions", hanel:"1", side:"B", shelf:"10B", qty:"9", cats:["neuro"] },
+  { name:"Set Kyphoplasty", hanel:"1", side:"B", shelf:"10B", qty:"4", cats:["neuro","spine"] },
+
+  { name:"Power Mazor X Navigated Midas", hanel:"1", side:"B", shelf:"11B", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Medtronic Mazor Stealth Reference Frame", hanel:"1", side:"B", shelf:"11B", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Medtronic Mazor #1", hanel:"1", side:"B", shelf:"11B", qty:"2", cats:["neuro"] },
+  { name:"Set Neuro Medtronic Mazor #2", hanel:"1", side:"B", shelf:"11B", qty:"2", cats:["neuro"] },
+  { name:"Set Medtronic Mazor Stealth Nav Tracker", hanel:"1", side:"B", shelf:"11B", qty:"2", cats:["neuro"] },
+
+  { name:"Set METRx II (overflow)", hanel:"1", side:"B", shelf:"12B", qty:"Overflow", cats:["neuro","spine"] },
+  { name:"Set METRx II Flex Arm & Dilators (overflow)", hanel:"1", side:"B", shelf:"12B", qty:"Overflow", cats:["neuro","spine"] },
+  { name:"Set METRx II Tubes Flat (overflow)", hanel:"1", side:"B", shelf:"12B", qty:"Overflow", cats:["neuro","spine"] },
+  { name:"Set METRx II Tubes Angled (overflow)", hanel:"1", side:"B", shelf:"12B", qty:"Overflow", cats:["neuro","spine"] },
+  { name:"Set Medtronic Flex Arm Back Up", hanel:"1", side:"B", shelf:"12B", qty:"1", cats:["neuro"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 2 — ORTHO SPINE & CVTS
+  // ══════════════════════════════════════════════
+  { name:"Basins / Medicine Cups", hanel:"2", side:"", shelf:"1", qty:"", cats:["ortho","gen"] },
+  { name:"Spinal Fusion Set", hanel:"2", side:"", shelf:"2", qty:"", cats:["ortho","spine"] },
+  { name:"Spine Extras / Ortho Extra Long Lumbar", hanel:"2", side:"", shelf:"3", qty:"", cats:["ortho","spine"] },
+  { name:"Anterior Exposure Set", hanel:"2", side:"", shelf:"4", qty:"", cats:["ortho","spine"] },
+  { name:"Black Kerrisons Set", hanel:"2", side:"", shelf:"4", qty:"", cats:["ortho","spine"] },
+  { name:"Micro Dissectors / Chisels", hanel:"2", side:"", shelf:"4", qty:"", cats:["ortho","spine"] },
+  { name:"Thompson Retractor Anterior/Posterior", hanel:"2", side:"", shelf:"5", qty:"", cats:["ortho","spine"] },
+  { name:"Peel-Packs: Ruler, Caliper, Angled Currette, Cobra, Cobb, Awl Hohmann, Bone Curettes", hanel:"2", side:"", shelf:"6", qty:"", cats:["ortho","peelpacks"] },
+  { name:"Plate Bender", hanel:"2", side:"", shelf:"7", qty:"", cats:["ortho","spine"] },
+  { name:"Rod Cutter", hanel:"2", side:"", shelf:"7", qty:"", cats:["ortho","spine"] },
+  { name:"Caspar / Black Bart / Caspar Distractor", hanel:"2", side:"", shelf:"7", qty:"", cats:["ortho","spine"] },
+  { name:"Lenox Bone Mill", hanel:"2", side:"", shelf:"8", qty:"", cats:["ortho"] },
+  { name:"Podiatry Set / Baby Triangle", hanel:"2", side:"", shelf:"8", qty:"", cats:["ortho"] },
+  { name:"Ortho Spine Pituitary Set", hanel:"2", side:"", shelf:"8", qty:"", cats:["ortho","spine"] },
+  { name:"Bone Mill Plus", hanel:"2", side:"", shelf:"9", qty:"", cats:["ortho"] },
+  { name:"Neuro Nav Solera Taps W/Def", hanel:"2", side:"", shelf:"10", qty:"", cats:["neuro","spine"] },
+  { name:"Nav Lock / Vertek Crani Biopsy", hanel:"2", side:"", shelf:"10", qty:"", cats:["neuro"] },
+  { name:"Mazor Stealth Preference Frame", hanel:"2", side:"", shelf:"10", qty:"", cats:["neuro"] },
+  { name:"Solera Drivers / Revision Set", hanel:"2", side:"", shelf:"10", qty:"", cats:["neuro","spine"] },
+  { name:"Mediastinoscopy / Polytrak / Rultract / Trama Chest Set", hanel:"2", side:"", shelf:"11", qty:"", cats:["cvts"] },
+  { name:"Bariatric Vascular (overflow)", hanel:"2", side:"", shelf:"11", qty:"Overflow", cats:["vascular"] },
+  { name:"CVTS Peel Packs", hanel:"2", side:"", shelf:"12", qty:"", cats:["cvts","peelpacks"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 3 SIDE A — ORTHO
+  // ══════════════════════════════════════════════
+  { name:"Gouges Curved & Straight", hanel:"3", side:"A", shelf:"1A", qty:"3", cats:["ortho"] },
+  { name:"Ortho Curettes", hanel:"3", side:"A", shelf:"1A", qty:"19", cats:["ortho"] },
+  { name:"Osteonics Wing Retractor", hanel:"3", side:"A", shelf:"1A", qty:"2", cats:["ortho"] },
+  { name:"Osteotomes", hanel:"3", side:"A", shelf:"1A", qty:"22", cats:["ortho"] },
+  { name:"Shukla Blade Flexible Osteotomes", hanel:"3", side:"A", shelf:"1A", qty:"1", cats:["ortho"] },
+  { name:"Single Point K-Wire (0.7-1.6mm)", hanel:"3", side:"A", shelf:"1A", qty:"6", cats:["ortho"] },
+  { name:"Single Point Steinmann Pin (2.0-4.8mm)", hanel:"3", side:"A", shelf:"1A", qty:"5", cats:["ortho"] },
+
+  { name:"Set Finger Trap System", hanel:"3", side:"A", shelf:"2A", qty:"0", cats:["ortho"] },
+  { name:"Set Hand", hanel:"3", side:"A", shelf:"2A", qty:"9", cats:["ortho"] },
+  { name:"Set Hand Micro", hanel:"3", side:"A", shelf:"2A", qty:"3", cats:["ortho"] },
+
+  { name:"Power Stryker System 8", hanel:"3", side:"A", shelf:"3A", qty:"", cats:["ortho"] },
+
+  { name:"Power Misonix Handpiece SOM-HP", hanel:"3", side:"A", shelf:"4A", qty:"2", cats:["ortho"] },
+  { name:"Power Stryker RemB", hanel:"3", side:"A", shelf:"4A", qty:"8", cats:["ortho"] },
+  { name:"Power Stryker System 8 Precision Saw Handpiece", hanel:"3", side:"A", shelf:"4A", qty:"5", cats:["ortho"] },
+  { name:"Power Stryker System 8 Reciprocating Saw Handpiece", hanel:"3", side:"A", shelf:"4A", qty:"7", cats:["ortho"] },
+
+  { name:"Set Cemented Shoulder Revision", hanel:"3", side:"A", shelf:"5A", qty:"1", cats:["ortho"] },
+  { name:"Set Reamers Dr Duda", hanel:"3", side:"A", shelf:"5A", qty:"2", cats:["ortho"] },
+
+  { name:"Set Dr Hewitt", hanel:"3", side:"A", shelf:"6A", qty:"", cats:["ortho"] },
+  { name:"Set Hip Dr Swinteck", hanel:"3", side:"A", shelf:"6A", qty:"", cats:["ortho"] },
+
+  // HANEL 3 SIDE A — list version
+  { name:"Curettes / Osteotomes / K Wires / Gouges / Flexible Osteotomes", hanel:"3", side:"A", shelf:"1", qty:"", cats:["ortho"] },
+  { name:"Hand Set / Lead Hand / Hand I&D / Finger Traps / Micro Hand", hanel:"3", side:"A", shelf:"2", qty:"", cats:["ortho"] },
+  { name:"System 8 (+CD8 overflow)", hanel:"3", side:"A", shelf:"3", qty:"", cats:["ortho"] },
+  { name:"Ortho Rem B / Precision Saw / Recip Saw / Batteries / Misonix / Rem B Cords", hanel:"3", side:"A", shelf:"4", qty:"", cats:["ortho"] },
+  { name:"McConnell Arm Holder / Wing Retractor / Reamers Dr Duda / Shoulder Cemented Set", hanel:"3", side:"A", shelf:"5", qty:"", cats:["ortho"] },
+  { name:"Swinteck Hip Set / Hewitt Set / Hip Extras / Mueller Retractor", hanel:"3", side:"A", shelf:"6", qty:"", cats:["ortho"] },
+  { name:"Ortho Trauma / Asst Bone Clamps / King Kong Tongs / Synthes Bone Holding Clamps / Verbugge Clamp", hanel:"3", side:"A", shelf:"7", qty:"", cats:["ortho"] },
+  { name:"Arthroscopy Sets / Arthrex Ankle Distractor", hanel:"3", side:"A", shelf:"8", qty:"", cats:["ortho"] },
+  { name:"Arthrex Toolbox / Ultrafix / Arthrex S3 Suspension / Arthrex Graft Prep Station / Mitel Drill Guide / Crimpers / Rotator Cuff Repair / CurvTek / Paramax", hanel:"3", side:"A", shelf:"9", qty:"", cats:["ortho"] },
+  { name:"Arthrex Scopes / Arthroscopy Extras / Arthrex Graft Tube Set / Crego Elevator", hanel:"3", side:"A", shelf:"10", qty:"", cats:["ortho"] },
+  { name:"DeMayo / VectorVision / Acufex Tibial Guide / Dr Duda Reamer Set", hanel:"3", side:"A", shelf:"11", qty:"", cats:["ortho"] },
+  { name:"Knee Triangles / Cement Gun / Cement Plugs / Cement Plug Inserter / Marchiany Knee / Marchiany Hip", hanel:"3", side:"A", shelf:"12", qty:"", cats:["ortho"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 3 SIDE B — ORTHO (Visual Guide Shelves 7B–12B)
+  // ══════════════════════════════════════════════
+  { name:"Total Knee Extras", hanel:"3", side:"B", shelf:"7B", qty:"10", cats:["ortho"] },
+
+  { name:"Set Arthrex Arthroscopy", hanel:"3", side:"B", shelf:"8B", qty:"6", cats:["ortho"] },
+  { name:"Set Arthrex Meniscus Repair & Resection", hanel:"3", side:"B", shelf:"8B", qty:"3", cats:["ortho"] },
+  { name:"Set Arthrex Multiligament", hanel:"3", side:"B", shelf:"8B", qty:"3", cats:["ortho"] },
+  { name:"Set Arthrex Small Joint", hanel:"3", side:"B", shelf:"8B", qty:"2", cats:["ortho"] },
+  { name:"Set Hip Arthroscopy", hanel:"3", side:"B", shelf:"8B", qty:"4", cats:["ortho"] },
+
+  { name:"Set Arthrex Bio-Tenodesis", hanel:"3", side:"B", shelf:"9B", qty:"", cats:["ortho"] },
+  { name:"Set Arthrex Shoulder Repair", hanel:"3", side:"B", shelf:"9B", qty:"", cats:["ortho"] },
+  { name:"Set Arthrex Shoulder Retractor", hanel:"3", side:"B", shelf:"9B", qty:"", cats:["ortho"] },
+  { name:"Set Ortho Microfracture Awls", hanel:"3", side:"B", shelf:"9B", qty:"", cats:["ortho"] },
+  { name:"Set ZimmerBiomet Awl & Taps", hanel:"3", side:"B", shelf:"9B", qty:"", cats:["ortho"] },
+
+  { name:"DePuy Moreland Cemented Hip Revision", hanel:"3", side:"B", shelf:"10B", qty:"1", cats:["ortho"] },
+  { name:"Shukla Broken Screw Removal", hanel:"3", side:"B", shelf:"10B", qty:"2", cats:["ortho"] },
+  { name:"Shukla Large Screw Removal", hanel:"3", side:"B", shelf:"10B", qty:"2", cats:["ortho"] },
+  { name:"Shukla Small Screw Removal", hanel:"3", side:"B", shelf:"10B", qty:"3", cats:["ortho"] },
+  { name:"Shukla Universal Nail Extraction #1", hanel:"3", side:"B", shelf:"10B", qty:"2", cats:["ortho"] },
+  { name:"Shukla Universal Nail Extraction #2", hanel:"3", side:"B", shelf:"10B", qty:"2", cats:["ortho"] },
+  { name:"Universal X-Fix Removal", hanel:"3", side:"B", shelf:"10B", qty:"3", cats:["ortho"] },
+  { name:"ZimmerBiomet Cable Ready", hanel:"3", side:"B", shelf:"10B", qty:"6", cats:["ortho"] },
+
+  { name:"Set Ortho Black Belt Retractor", hanel:"3", side:"B", shelf:"11B", qty:"1", cats:["ortho"] },
+  { name:"Set Ortho Vice Grip W/Slap Hammer", hanel:"3", side:"B", shelf:"11B", qty:"3", cats:["ortho"] },
+  { name:"Set Synthes Clamp Bone Reduction Forcep Wide Long 5 1/8in W/Ratchet Dr Haddix", hanel:"3", side:"B", shelf:"11B", qty:"1", cats:["ortho"] },
+
+  // HANEL 3 SIDE B list version
+  { name:"Basic Ortho", hanel:"3", side:"B", shelf:"1", qty:"", cats:["ortho"] },
+  { name:"Basic Ortho (shelf 2)", hanel:"3", side:"B", shelf:"2", qty:"", cats:["ortho"] },
+  { name:"System 8 (+CD8 Overflow)", hanel:"3", side:"B", shelf:"3", qty:"", cats:["ortho"] },
+  { name:"CD8 / CD4", hanel:"3", side:"B", shelf:"4", qty:"", cats:["ortho"] },
+  { name:"Anspach Shoulder Retractor / Wrist Tower / Wrist Tower Straps", hanel:"3", side:"B", shelf:"5", qty:"", cats:["ortho"] },
+  { name:"Total Hip Set / Anterior Hook Assembly / Charnley Retractor", hanel:"3", side:"B", shelf:"6", qty:"", cats:["ortho"] },
+  { name:"Total Knee Sets / Total Knee Extras / Ortho Trauma / Zimmer Tabletop Plate Bender", hanel:"3", side:"B", shelf:"7", qty:"", cats:["ortho"] },
+  { name:"Arthrex Arthroscopy Sets / Arthrex Small Joint / Arthrex Scope 30 / Arthrex Meniscus Repair / Hip Arthroscopy / Arthrex Multiligament", hanel:"3", side:"B", shelf:"8", qty:"", cats:["ortho"] },
+  { name:"Arthrex Repair / Biotenodesis / Arthrex S3 / Biomet Tap / Microfracture Awls / Arthrex Shoulder Repair Set / Arthrex Shoulder Retractor", hanel:"3", side:"B", shelf:"9", qty:"", cats:["ortho"] },
+  { name:"Moreland Hip / Moreland Cemented Hip / Nail Extraction Set / Large & Small Screw Removal Sets / Universal Ex-Fix Removal / Cable Grip System / Dall Miles", hanel:"3", side:"B", shelf:"10", qty:"", cats:["ortho"] },
+  { name:"Handy Deep Pelvic / Haddix Pelvic / Vice Grip W/Slap Hammer / Ortho Strainer / Mallet / Ortho Black Belt Retractor", hanel:"3", side:"B", shelf:"11", qty:"", cats:["ortho"] },
+  { name:"Large Basins", hanel:"3", side:"B", shelf:"12", qty:"", cats:["gen"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 4 SIDE A — GEN (Shelves 1A–12A)
+  // ══════════════════════════════════════════════
+  { name:"Lap Pill Packs", hanel:"4", side:"A", shelf:"1A", qty:"", cats:["gen","lap"] },
+  { name:"Pack Endoscopic Articulating Retractor 5mm Angled 34cm Triangle (Mr Squiggly)", hanel:"4", side:"A", shelf:"1A", qty:"0", cats:["gen","lap"] },
+  { name:"Pack Endoscopic Articulating Retractor 5mm Angled 36cm Triangle (Mr Squiggly)", hanel:"4", side:"A", shelf:"1A", qty:"0", cats:["gen","lap"] },
+
+  { name:"Pack Bovie Cord", hanel:"4", side:"A", shelf:"2A", qty:"0", cats:["gen"] },
+  { name:"Gen Light Cords", hanel:"4", side:"A", shelf:"2A", qty:"", cats:["gen"] },
+  { name:"Power Harmonic Scalpel Grey", hanel:"4", side:"A", shelf:"2A", qty:"11", cats:["gen"] },
+  { name:"Pack Hemorrhoid Bander & Forcep", hanel:"4", side:"A", shelf:"2A", qty:"0", cats:["gen"] },
+  { name:"Power Harmonic Scalpel Blue", hanel:"4", side:"A", shelf:"2A", qty:"7", cats:["gen"] },
+
+  { name:"Set EEA Sizers", hanel:"4", side:"A", shelf:"3A", qty:"1", cats:["gen"] },
+  { name:"Pack Retractor Mastectomy Hook", hanel:"4", side:"A", shelf:"3A", qty:"2", cats:["gen"] },
+  { name:"Pack Retractor Berens Mastectomy Skin Flap Sharp 8in", hanel:"4", side:"A", shelf:"3A", qty:"0", cats:["gen"] },
+
+  { name:"Set Lap Chole Specials", hanel:"4", side:"A", shelf:"4A", qty:"15", cats:["gen","lap"] },
+  { name:"Set Lap 3mm", hanel:"4", side:"A", shelf:"4A", qty:"1", cats:["gen","lap"] },
+
+  { name:"Set Lap Chole Specials (overflow)", hanel:"4", side:"A", shelf:"5A", qty:"Overflow", cats:["gen","lap"] },
+  { name:"Set General OmniTract Retractor", hanel:"4", side:"A", shelf:"5A", qty:"1", cats:["gen"] },
+
+  { name:"Scope Stryker 5.5mm 30° & 0°", hanel:"4", side:"A", shelf:"6A", qty:"17", cats:["gen"] },
+  { name:"Scope Stryker 10mm 0° & 30°", hanel:"4", side:"A", shelf:"6A", qty:"11", cats:["gen"] },
+  { name:"Scope Stryker ICG 5.4mm 30°", hanel:"4", side:"A", shelf:"6A", qty:"6", cats:["gen"] },
+  { name:"Scope Stryker 5.5mm 0° 30cm", hanel:"4", side:"A", shelf:"6A", qty:"12", cats:["gen"] },
+  { name:"Scope Stryker ICG 10mm 30°", hanel:"4", side:"A", shelf:"6A", qty:"4", cats:["gen"] },
+  { name:"Scope Stryker 5.5mm 30° 30cm", hanel:"4", side:"A", shelf:"6A", qty:"4", cats:["gen"] },
+  { name:"Scope Stryker ICG 5.4mm 0°", hanel:"4", side:"A", shelf:"6A", qty:"2", cats:["gen"] },
+  { name:"Scope Stryker 10mm 30°", hanel:"4", side:"A", shelf:"6A", qty:"4", cats:["gen"] },
+  { name:"Scope Stryker ICG 10mm 0°", hanel:"4", side:"A", shelf:"6A", qty:"3", cats:["gen"] },
+  { name:"Scope Stryker 10mm 0° 33cm", hanel:"4", side:"A", shelf:"6A", qty:"2", cats:["gen"] },
+  { name:"Scope K. Storz 10mm 30°", hanel:"4", side:"A", shelf:"6A", qty:"1", cats:["gen"] },
+
+  { name:"Set Gastrointestinal", hanel:"4", side:"A", shelf:"7A", qty:"10", cats:["gen"] },
+
+  { name:"Set Invuity Lumpectomy Lighted Breast Retractor", hanel:"4", side:"A", shelf:"8A", qty:"3", cats:["gen"] },
+  { name:"Set Invuity Mastectomy Lighted Breast Retractor", hanel:"4", side:"A", shelf:"8A", qty:"2", cats:["gen"] },
+  { name:"Set Nipple Sparing Retractor", hanel:"4", side:"A", shelf:"8A", qty:"4", cats:["gen"] },
+  { name:"Set X-Long Instruments", hanel:"4", side:"A", shelf:"8A", qty:"5", cats:["gen"] },
+
+  { name:"Set Breast", hanel:"4", side:"A", shelf:"9A", qty:"9", cats:["gen"] },
+
+  { name:"Set Bookwalter Retractor", hanel:"4", side:"A", shelf:"10A", qty:"5", cats:["gen"] },
+  { name:"Set Bookwalter Supplument", hanel:"4", side:"A", shelf:"10A", qty:"2", cats:["gen"] },
+
+  { name:"Set Thompson Liver Frame (2/3)", hanel:"4", side:"A", shelf:"11A", qty:"1", cats:["gen"] },
+  { name:"Set Thompson Liver Retractor Arms & Handles (3/3)", hanel:"4", side:"A", shelf:"11A", qty:"1", cats:["gen"] },
+  { name:"Set Thompson Liver Blades (1/3)", hanel:"4", side:"A", shelf:"11A", qty:"1", cats:["gen"] },
+  { name:"Set Thompson Retractor #1 Old", hanel:"4", side:"A", shelf:"11A", qty:"1", cats:["gen"] },
+  { name:"Set Thompson Retractor #2 New", hanel:"4", side:"A", shelf:"11A", qty:"1", cats:["gen"] },
+
+  { name:"All Peds Scopes", hanel:"4", side:"A", shelf:"12A", qty:"", cats:["gen"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 4 SIDE B — GEN (Shelves 1B–12B)
+  // ══════════════════════════════════════════════
+  { name:"Lap Pill Packs (overflow)", hanel:"4", side:"B", shelf:"1B", qty:"", cats:["gen","lap"] },
+
+  { name:"Pack Fascial Closure Device", hanel:"4", side:"B", shelf:"2B", qty:"0", cats:["gen"] },
+  { name:"Set General BK Medical Lap Ultrasound Probe", hanel:"4", side:"B", shelf:"2B", qty:"1", cats:["gen"] },
+  { name:"Set General BK Medical Open Abdominal Ultrasound Probe", hanel:"4", side:"B", shelf:"2B", qty:"2", cats:["gen"] },
+  { name:"Set Lap Gallbladder X-Long Specials", hanel:"4", side:"B", shelf:"2B", qty:"1", cats:["gen","lap"] },
+
+  { name:"Set Lap Chole", hanel:"4", side:"B", shelf:"3B", qty:"9", cats:["gen","lap"] },
+  { name:"Set Lap Closure", hanel:"4", side:"B", shelf:"3B", qty:"5", cats:["gen","lap"] },
+  { name:"Set Nezhat Dorsey Irrigation", hanel:"4", side:"B", shelf:"3B", qty:"4", cats:["gen"] },
+  { name:"Set Gallbladder", hanel:"4", side:"B", shelf:"3B", qty:"1", cats:["gen"] },
+
+  { name:"Set Lap Chole Specials (overflow B)", hanel:"4", side:"B", shelf:"4B", qty:"Overflow", cats:["gen","lap"] },
+
+  { name:"Camera Stryker & Cords", hanel:"4", side:"B", shelf:"5B", qty:"33", cats:["gen"] },
+  { name:"Set Kidney", hanel:"4", side:"B", shelf:"5B", qty:"1", cats:["gen"] },
+
+  { name:"Scope Stryker 5.5mm 30° & 0° (overflow)", hanel:"4", side:"B", shelf:"6B", qty:"Overflow", cats:["gen"] },
+  { name:"Scope Stryker 10mm 0° & 30° (overflow)", hanel:"4", side:"B", shelf:"6B", qty:"Overflow", cats:["gen"] },
+  { name:"Scope Stryker ICG 5.4mm 30° (overflow)", hanel:"4", side:"B", shelf:"6B", qty:"Overflow", cats:["gen"] },
+  { name:"Scope Stryker 5.5mm 0° 30cm (overflow)", hanel:"4", side:"B", shelf:"6B", qty:"Overflow", cats:["gen"] },
+  { name:"Scope Stryker ICG 10mm 30° (overflow)", hanel:"4", side:"B", shelf:"6B", qty:"Overflow", cats:["gen"] },
+  { name:"Scope Stryker 5.5mm 30° 30cm (overflow)", hanel:"4", side:"B", shelf:"6B", qty:"Overflow", cats:["gen"] },
+  { name:"Scope Stryker ICG 5.4mm 0° (overflow)", hanel:"4", side:"B", shelf:"6B", qty:"Overflow", cats:["gen"] },
+  { name:"Scope Stryker 10mm 30° (overflow)", hanel:"4", side:"B", shelf:"6B", qty:"Overflow", cats:["gen"] },
+  { name:"Scope Stryker ICG 10mm 0° (overflow)", hanel:"4", side:"B", shelf:"6B", qty:"Overflow", cats:["gen"] },
+  { name:"Scope Stryker 10mm 0° 33cm (overflow)", hanel:"4", side:"B", shelf:"6B", qty:"Overflow", cats:["gen"] },
+  { name:"Scope K. Storz 10mm 30° (overflow)", hanel:"4", side:"B", shelf:"6B", qty:"Overflow", cats:["gen"] },
+
+  { name:"Set Minor", hanel:"4", side:"B", shelf:"7B", qty:"11", cats:["gen"] },
+
+  { name:"Set Cobra Grasper (3pc)", hanel:"4", side:"B", shelf:"8B", qty:"3", cats:["gen"] },
+  { name:"Set X-Long Instruments (Gen B)", hanel:"4", side:"B", shelf:"8B", qty:"5", cats:["gen"] },
+
+  { name:"Set General Plastics", hanel:"4", side:"B", shelf:"9B", qty:"3", cats:["gen"] },
+  { name:"Set Nathanson Retractor", hanel:"4", side:"B", shelf:"9B", qty:"3", cats:["gen"] },
+  { name:"Set Iron Man Nathanson Blades", hanel:"4", side:"B", shelf:"9B", qty:"0", cats:["gen"] },
+  { name:"Set Hepatobiliary", hanel:"4", side:"B", shelf:"9B", qty:"2", cats:["gen"] },
+  { name:"Set Hem-o-lok Appliers Dr Byerly", hanel:"4", side:"B", shelf:"9B", qty:"1", cats:["gen"] },
+  { name:"Set Clamp Backhaus Towel Clips Dr Byerly", hanel:"4", side:"B", shelf:"9B", qty:"2", cats:["gen"] },
+
+  { name:"Set Rectal", hanel:"4", side:"B", shelf:"10B", qty:"3", cats:["gen"] },
+  { name:"Set Thyroid", hanel:"4", side:"B", shelf:"10B", qty:"3", cats:["gen"] },
+  { name:"Set Invuity Lighted Thyroid Retractors", hanel:"4", side:"B", shelf:"10B", qty:"2", cats:["gen"] },
+  { name:"Set Iron Man Bariatric Retractor", hanel:"4", side:"B", shelf:"10B", qty:"2", cats:["gen"] },
+  { name:"Set Iron Man Nathanson Blades (10B)", hanel:"4", side:"B", shelf:"10B", qty:"0", cats:["gen"] },
+  { name:"Set Port-A-Cath", hanel:"4", side:"B", shelf:"10B", qty:"3", cats:["gen"] },
+
+  { name:"Set Iron Man Bariatric Retractor (11B)", hanel:"4", side:"B", shelf:"11B", qty:"2", cats:["gen"] },
+  { name:"Set Iron Man Nathanson Blades (11B)", hanel:"4", side:"B", shelf:"11B", qty:"0", cats:["gen"] },
+  { name:"Set Port-A-Cath (11B)", hanel:"4", side:"B", shelf:"11B", qty:"3", cats:["gen"] },
+
+  { name:"All Peds Sets", hanel:"4", side:"B", shelf:"12B", qty:"", cats:["gen"] },
+  { name:"Set Drain Placement Dr Adibe", hanel:"4", side:"B", shelf:"12B", qty:"0", cats:["gen"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 7 — PEEL-PACKS SIDE A
+  // ══════════════════════════════════════════════
+  { name:"#3 Knife, #4 Knife, #7 Knife, #9 Knife, Long Knife, Adson w/Teeth, Adson Brown, Adson Smooth, Forcep W/O Teeth, Forcep W/Teeth, Cushing Forcep W/O Teeth, Cushing W/Teeth, Forcep W/Teeth Long, Forcep W/O Teeth", hanel:"7", side:"A", shelf:"1 (Gen)", qty:"", cats:["gen","peelpacks"] },
+  { name:"Mayo Str, Mayo Crvd, Metz Crvd, Metz Str, Bandage Scissors, Black Handle Scissors, Needle Holders 5in/6in/7-8in, Scanlan Needle Holders, Crvd Needleholder, Iris/Tenotomy Scissors", hanel:"7", side:"A", shelf:"2 (Gen)", qty:"", cats:["gen","peelpacks"] },
+  { name:"Skin Hooks Single/Double, Senns Sharp/Blunt, Ragnells, Probe/Grove, Army Navy, Vein Retractor, Goulet Retractor, Appendeal Retractor, Gelpi Retractor, Mastectomy Hook", hanel:"7", side:"A", shelf:"3 (Gen)", qty:"", cats:["gen","peelpacks"] },
+  { name:"Sentimag Metal Free: Allis, Babcock, Debakey, Weitlander, Army Navy", hanel:"7", side:"A", shelf:"4 (Gen)", qty:"", cats:["gen","peelpacks"] },
+  { name:"3,4,5,6 Suctions / 7,8,9 Suctions / 10Fr-15Fr Suctions / Andrew Suctions / Poole Suction / Yankauer Suction", hanel:"7", side:"A", shelf:"5 (Gen)", qty:"", cats:["gen","peelpacks"] },
+  { name:"ENT Extras, ENT Knives, Dental/ENT Elevators, ENT Curettes, Adenoid Curettes, Dental Scissors, Dental Mirror, Bite Blocks, McCabe", hanel:"7", side:"A", shelf:"6 (ENT)", qty:"", cats:["ent","peelpacks"] },
+  { name:"Lamina Spreader, 2/3/4 Prong Rakes Sharp/Blunt, 6/8 Prong Rakes Sharp/Blunt, Rulers, Freer, Key Elevator, Cregos, Impactor", hanel:"7", side:"A", shelf:"7 (Gen+Ortho)", qty:"", cats:["gen","ortho","peelpacks"] },
+  { name:"Baby Hohmann, Hohmann, Reverse Hohmann, Bennett, Bone Hook, Cobb Elevator, Calipers, Cobra Retractor, Drill Bits", hanel:"7", side:"A", shelf:"8 (Ortho)", qty:"", cats:["ortho","peelpacks"] },
+  { name:"Henley Clamp, Cooley Clamp, Fogarty Clamp, Debakey Peripheral Clamp, Satinsky Clamp, Debakey Coarctation Clamp, Debakey Aorta, Open Heart Dr Forceps", hanel:"7", side:"A", shelf:"9 (CVTS)", qty:"", cats:["cvts","peelpacks"] },
+  { name:"Beckman Retractor, Weitlander Sm/Md/Lg Blunt/Sharp, Chung Retractor, Cerebellar, Vascular Needle Holders 9in-12in, Norfolk Retractor", hanel:"7", side:"A", shelf:"10 (Vascular)", qty:"", cats:["vascular","peelpacks"] },
+  { name:"Woodson Elevator, Nerve Hook, Penfield All Sides, Nerve Root Retractor, Cloward Retractor", hanel:"7", side:"A", shelf:"11 (Neuro)", qty:"", cats:["neuro","peelpacks"] },
+  { name:"Malleable Narrow/Wide, Deaver Baby/Narrow/Med/Wide, Harrington Retractor, Richardson Sm/Med/Lg", hanel:"7", side:"A", shelf:"12 (Gen)", qty:"", cats:["gen","peelpacks"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 7 — PEEL-PACKS SIDE B
+  // ══════════════════════════════════════════════
+  { name:"Gerald Forcep W/O Teeth, Gerald Forcep W/Teeth, Gerald Debakey, Diamond Cushing, Debakey sm/Med/Lg/Blue Dipped, Russian Sm/Med/Lg, Bonney, Ferris Smith, Tuttle Singley, Bayonet Forcep, Silverglide", hanel:"7", side:"B", shelf:"1 (Gen)", qty:"", cats:["gen","peelpacks"] },
+  { name:"Hemostat, Str Hemostat, Mosquito, Kelly Clamp, Right Angle, Tonsil Clamp, Allis, Babcock, Kocher, Spongestick, Uterine Dressing, Allen", hanel:"7", side:"B", shelf:"2 (Gen)", qty:"", cats:["gen","peelpacks"] },
+  { name:"Gigi Saw, Peds Extras, Lahey, Blue Towel Clip, Edna Towel Clip, Penetrating Towel Clip, Bozeman Uterine, Suture Wires (ENT)", hanel:"7", side:"B", shelf:"3 (Gen/ENT)", qty:"", cats:["gen","ent","peelpacks"] },
+  { name:"Bobcock Duval, Maryland, Pes Lap Insts, L Hook/Spatula Coagulator, Dolphin Grasper/Dissector, Knot Pusher, Sheaths, Glassman, Mother In Law, Lap Handle", hanel:"7", side:"B", shelf:"4 (Lap)", qty:"", cats:["lap","peelpacks"] },
+  { name:"Medicine Cups, Eye Insts, Micro Hand Extras, Hand Extras, Caroll Pulley, Alms Retractor, Hockey Stick, Arch Bars", hanel:"7", side:"B", shelf:"5 (Eye/ENT)", qty:"", cats:["eye","ent","peelpacks"] },
+  { name:"Mouth Retractor, ENT Retractors, Cochlear Insts, Ear Knife Handle, Ear Speculum, ENT Suctions, ENT Scissors, Punch Forceps", hanel:"7", side:"B", shelf:"6 (ENT/Dent)", qty:"", cats:["ent","peelpacks"] },
+  { name:"Mr. Wiggles, Beyer Rongeur, Leksell Rongeur, Rasp, Mallet, Vein Retractor, S Retractor, Pliers, Ortho Extras, Mallets", hanel:"7", side:"B", shelf:"7 (Ortho/Spine)", qty:"", cats:["ortho","spine","peelpacks"] },
+  { name:"Curettes, Epstein Curettes, Bone Cutter, Pin/Wire Cutter, Mikhail Retractor, Tendon, Smillie Retractor, Stripper, Lowman Bone Holding Clamp/Turkey Claw, Ortho Extras, Knot Pusher, Hibbs", hanel:"7", side:"B", shelf:"8 (Ortho)", qty:"", cats:["ortho","peelpacks"] },
+  { name:"Vascular Dilator All Sides, Luque Wire Twister, Rumel Cardiovascular Tourniquet (Keeper), Aortic Occluder, Dr Cain Scissors, Rhoton Hook, Kitz Miller Left/Right, Tuffier Rib Spreader, Bulldog Curv/Str/Olive Tip, Gregory Clamp", hanel:"7", side:"B", shelf:"9 (Vascular)", qty:"", cats:["vascular","cvts","peelpacks"] },
+  { name:"Vascular Pituitary, Spring Wire, Noon AV Fistula Clamp, Westcott Scissors, Dr Specials Insts, Chest Tube Puller/Passer, Darling Popliteal Retractor, Castro Needle Holder, Vascular Extras", hanel:"7", side:"B", shelf:"10 (Vascular)", qty:"", cats:["vascular","peelpacks"] },
+  { name:"Taylor Retractor, #1/#2/#3 Kerrisons, Black Kerrisons, Micro Pituitary All Sides Down/Up/Str, Clip Applier Sm/Med/Lg", hanel:"7", side:"B", shelf:"11 (Neuro)", qty:"", cats:["neuro","peelpacks"] },
+  { name:"Vascular (Shelf 12)", hanel:"7", side:"B", shelf:"12 (Vascular)", qty:"", cats:["vascular","peelpacks"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 5 SIDE A — ENT, EYES, PLASTIC, DENTAL
+  // ══════════════════════════════════════════════
+  { name:"Power Medtronic StraightShot M4 Microdebrider", hanel:"5", side:"A", shelf:"1A", qty:"2", cats:["ent"] },
+  { name:"Power Medtronic StraightShot M5 Microdebrider", hanel:"5", side:"A", shelf:"1A", qty:"6", cats:["ent"] },
+  { name:"Scope ENT Hopkins II Cystoscope 4mm 0° 30cm Green", hanel:"5", side:"A", shelf:"1A", qty:"2", cats:["ent"] },
+  { name:"Scope ENT Sinus 45°", hanel:"5", side:"A", shelf:"1A", qty:"0", cats:["ent"] },
+  { name:"Scope ENT Stryker 4mm 0°", hanel:"5", side:"A", shelf:"1A", qty:"0", cats:["ent"] },
+  { name:"Set Adult Sinus", hanel:"5", side:"A", shelf:"1A", qty:"2", cats:["ent"] },
+  { name:"Set Adult Sinus Scopes", hanel:"5", side:"A", shelf:"1A", qty:"3", cats:["ent"] },
+  { name:"Set Curette Barnhill Adenoid #2 8 1/2in", hanel:"5", side:"A", shelf:"1A", qty:"0", cats:["ent"] },
+  { name:"Set ENT Medtronic Fusion Navigation Basic", hanel:"5", side:"A", shelf:"1A", qty:"3", cats:["ent"] },
+  { name:"Set ENT Medtronic Navigation Supplemental", hanel:"5", side:"A", shelf:"1A", qty:"2", cats:["ent"] },
+  { name:"Set Medtronic Fusion Supplemental", hanel:"5", side:"A", shelf:"1A", qty:"2", cats:["ent"] },
+  { name:"Set Myringotomy", hanel:"5", side:"A", shelf:"1A", qty:"6", cats:["ent"] },
+
+  { name:"Set Tympanoplasty Micro", hanel:"5", side:"A", shelf:"2A", qty:"1", cats:["ent"] },
+  { name:"Set FESS", hanel:"5", side:"A", shelf:"2A", qty:"1", cats:["ent"] },
+  { name:"Set FESS Accessory", hanel:"5", side:"A", shelf:"2A", qty:"2", cats:["ent"] },
+  { name:"Set Stapedectomy", hanel:"5", side:"A", shelf:"2A", qty:"1", cats:["ent"] },
+  { name:"Set Tympanoplasty", hanel:"5", side:"A", shelf:"2A", qty:"2", cats:["ent"] },
+
+  { name:"Set ENT Standard Microlaryngoscopy", hanel:"5", side:"A", shelf:"3A", qty:"3", cats:["ent"] },
+  { name:"Set K. Storz Laser Laryngoscope Orange", hanel:"5", side:"A", shelf:"3A", qty:"2", cats:["ent"] },
+  { name:"Set Radical Neck", hanel:"5", side:"A", shelf:"3A", qty:"4", cats:["ent"] },
+  { name:"Set Tonsil UPPP", hanel:"5", side:"A", shelf:"3A", qty:"7", cats:["ent"] },
+  { name:"Set Tracheostomy", hanel:"5", side:"A", shelf:"3A", qty:"5", cats:["ent"] },
+
+  { name:"Set Biomet Trauma 1 Cut Down Midface", hanel:"5", side:"A", shelf:"4A", qty:"1", cats:["ent"] },
+  { name:"Set Trauma One Cut-Down Mandible", hanel:"5", side:"A", shelf:"4A", qty:"1", cats:["ent"] },
+  { name:"Set Stryker Leibinger MMF", hanel:"5", side:"A", shelf:"4A", qty:"2", cats:["ent"] },
+  { name:"Set TMJ", hanel:"5", side:"A", shelf:"4A", qty:"2", cats:["ent"] },
+  { name:"Set ZimmerBiomet Omnimax MMF", hanel:"5", side:"A", shelf:"4A", qty:"2", cats:["ent"] },
+
+  { name:"Set Breast Reconstruction", hanel:"5", side:"A", shelf:"5A", qty:"3", cats:["gen"] },
+  { name:"Set Plastics Delicate", hanel:"5", side:"A", shelf:"5A", qty:"2", cats:["gen"] },
+  { name:"Set Obwegeser Retractors", hanel:"5", side:"A", shelf:"5A", qty:"2", cats:["gen"] },
+  { name:"Set Cookie Cutters Ruler Freeman Areola Marker", hanel:"5", side:"A", shelf:"5A", qty:"4", cats:["gen"] },
+  { name:"Set Plastics Sprinkler Needle Liposuction Cannula 14 Gauge", hanel:"5", side:"A", shelf:"5A", qty:"2", cats:["gen"] },
+  { name:"Set Plastics Scalpel Webster Skin Graft Knife Handle 7 1/4in", hanel:"5", side:"A", shelf:"5A", qty:"1", cats:["gen"] },
+
+  { name:"Set Stryker Leibinger Universal CMF", hanel:"5", side:"A", shelf:"6A", qty:"2", cats:["gen","ent"] },
+  { name:"Power Zimmer Dermatome", hanel:"5", side:"A", shelf:"6A", qty:"3", cats:["gen"] },
+  { name:"Set Zimmer Meshgraft II", hanel:"5", side:"A", shelf:"6A", qty:"2", cats:["gen"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 5 SIDE B — ENT, EYES, PLASTIC, DENTAL (Shelves 1B–6B)
+  // ══════════════════════════════════════════════
+  { name:"Set K. Storz Pediatric Airway", hanel:"5", side:"B", shelf:"1B", qty:"2", cats:["ent"] },
+  { name:"Set Jaw", hanel:"5", side:"B", shelf:"1B", qty:"2", cats:["ent"] },
+  { name:"Set Frontal Sinus", hanel:"5", side:"B", shelf:"1B", qty:"2", cats:["ent"] },
+  { name:"Set Nasal", hanel:"5", side:"B", shelf:"1B", qty:"3", cats:["ent"] },
+  { name:"Set Nasal Prep", hanel:"5", side:"B", shelf:"1B", qty:"6", cats:["ent"] },
+
+  { name:"Set ENT Pilling Bronchoscopy", hanel:"5", side:"B", shelf:"2B", qty:"1", cats:["ent"] },
+  { name:"Set Esophagoscopy", hanel:"5", side:"B", shelf:"2B", qty:"2", cats:["ent"] },
+  { name:"Set Esophagoscopy X-Long", hanel:"5", side:"B", shelf:"2B", qty:"1", cats:["ent"] },
+  { name:"Set Adenotomes Electric", hanel:"5", side:"B", shelf:"2B", qty:"1", cats:["ent"] },
+  { name:"Set Advanced Bionics Cochlear", hanel:"5", side:"B", shelf:"2B", qty:"1", cats:["ent"] },
+  { name:"Pack Elmed Forcep Bipolar", hanel:"5", side:"B", shelf:"2B", qty:"0", cats:["ent"] },
+  { name:"Pack Elmed Bipolar Cord", hanel:"5", side:"B", shelf:"2B", qty:"2", cats:["ent"] },
+
+  { name:"Set Ear Specials Dr Kraus & Mundy", hanel:"5", side:"B", shelf:"3B", qty:"1", cats:["ent"] },
+  { name:"Set ENT Epistaxis", hanel:"5", side:"B", shelf:"3B", qty:"12", cats:["ent"] },
+  { name:"Set Stryker Leibinger Universal CMF (3B)", hanel:"5", side:"B", shelf:"3B", qty:"2", cats:["ent"] },
+  { name:"Pack ENT Light Cord", hanel:"5", side:"B", shelf:"3B", qty:"0", cats:["ent"] },
+
+  { name:"Set ENT Bronchoscopy", hanel:"5", side:"B", shelf:"4B", qty:"1", cats:["ent"] },
+  { name:"Set Integra Sataloff Laryngoscope Medium", hanel:"5", side:"B", shelf:"4B", qty:"1", cats:["ent"] },
+  { name:"Set Integra Sataloff Laryngoscope Small-Medium", hanel:"5", side:"B", shelf:"4B", qty:"1", cats:["ent"] },
+  { name:"Pack Integra Forcep Laryngeal Biopsy Cup 3.4mm 9 3/4in", hanel:"5", side:"B", shelf:"4B", qty:"2", cats:["ent"] },
+  { name:"Set Pilling Vitality Lindholm Laryngoscope", hanel:"5", side:"B", shelf:"4B", qty:"1", cats:["ent"] },
+  { name:"Set Vitality Ossoff-Pilling Laryngoscopes", hanel:"5", side:"B", shelf:"4B", qty:"1", cats:["ent"] },
+
+  { name:"Set Plastics Olsen-Hegar Needle Holders", hanel:"5", side:"B", shelf:"5B", qty:"5", cats:["gen"] },
+  { name:"Set Plastics DIEP Free Flap Microsurgery", hanel:"5", side:"B", shelf:"5B", qty:"2", cats:["gen"] },
+  { name:"Set Plastics DIEP Free Flap", hanel:"5", side:"B", shelf:"5B", qty:"2", cats:["gen"] },
+  { name:"Set Plastics DIEP Free Flap Retractor", hanel:"5", side:"B", shelf:"5B", qty:"2", cats:["gen"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 5 SIDE B — (Shelves 7B–12B)
+  // ══════════════════════════════════════════════
+  { name:"Peel Pack Light Cords", hanel:"5", side:"B", shelf:"7B", qty:"", cats:["ent","peelpacks"] },
+
+  { name:"Power Alcon Fragmatome", hanel:"5", side:"B", shelf:"11B", qty:"2", cats:["eye"] },
+  { name:"Power Phaco", hanel:"5", side:"B", shelf:"11B", qty:"5", cats:["eye"] },
+  { name:"Power Phaco Ozil Torsional Handpiece (Blue W/Cord-Containment)", hanel:"5", side:"B", shelf:"11B", qty:"1", cats:["eye"] },
+  { name:"Set Biom Lens & Attachment", hanel:"5", side:"B", shelf:"11B", qty:"3", cats:["eye"] },
+  { name:"Set BIOM Lens Gold", hanel:"5", side:"B", shelf:"11B", qty:"2", cats:["eye"] },
+  { name:"Set BIOM Lens Silver", hanel:"5", side:"B", shelf:"11B", qty:"4", cats:["eye"] },
+  { name:"Set BIOM Plate & Attachment", hanel:"5", side:"B", shelf:"11B", qty:"3", cats:["eye"] },
+  { name:"Set Cataract", hanel:"5", side:"B", shelf:"11B", qty:"3", cats:["eye"] },
+  { name:"Set Ocular Vitrectomy Sapphire Lens System", hanel:"5", side:"B", shelf:"11B", qty:"4", cats:["eye"] },
+  { name:"Set Orbital Sizers", hanel:"5", side:"B", shelf:"11B", qty:"2", cats:["eye"] },
+  { name:"Set Revolution Handle", hanel:"5", side:"B", shelf:"11B", qty:"3", cats:["eye"] },
+  { name:"Set Schiotz Tonometer", hanel:"5", side:"B", shelf:"11B", qty:"1", cats:["eye"] },
+  { name:"Set Squint", hanel:"5", side:"B", shelf:"11B", qty:"2", cats:["eye"] },
+
+  { name:"Set Dr Milner", hanel:"5", side:"B", shelf:"12B", qty:"2", cats:["ent","gen"] },
+  { name:"Set Dental Dr Owsley", hanel:"5", side:"B", shelf:"12B", qty:"2", cats:["ent"] },
+  { name:"Set Dental Osteotomy", hanel:"5", side:"B", shelf:"12B", qty:"1", cats:["ent"] },
+
+  // Also add the Suction Table items referenced in the card photo
+  { name:"Pack Curette Stubbs Adenoid Curved", hanel:"5", side:"B", shelf:"2B (Suction Table)", qty:"", cats:["ent"] },
+  { name:"Pack Clamp Allis 5X6 9 1/2in", hanel:"5", side:"B", shelf:"2B (Suction Table)", qty:"", cats:["ent"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 6 SIDE A — URO & ROBOTICS (Shelves 1A–6A)
+  // ══════════════════════════════════════════════
+  { name:"Scope Bulkamid Cystoscope 2.7mm 0°", hanel:"6", side:"A", shelf:"1A", qty:"3", cats:["uro"] },
+  { name:"Scope Cystoscope 4mm 12° 28cm", hanel:"6", side:"A", shelf:"1A", qty:"0", cats:["uro"] },
+  { name:"Scope R. Wolf Flexible Cystoscope", hanel:"6", side:"A", shelf:"1A", qty:"4", cats:["uro"] },
+  { name:"Set Sheath & Obturator 17.5Fr", hanel:"6", side:"A", shelf:"1A", qty:"1", cats:["uro"] },
+  { name:"Set Sheath & Obturator 23Fr", hanel:"6", side:"A", shelf:"1A", qty:"1", cats:["uro"] },
+  { name:"Camera R. Wolf Pendual", hanel:"6", side:"A", shelf:"1A", qty:"12", cats:["uro"] },
+
+  { name:"Set R. Wolf Cysto", hanel:"6", side:"A", shelf:"2A", qty:"12", cats:["uro"] },
+
+  { name:"Set R. Wolf Resection", hanel:"6", side:"A", shelf:"3A", qty:"2", cats:["uro"] },
+  { name:"Set R. Wolf Resection 26Fr Yellow", hanel:"6", side:"A", shelf:"3A", qty:"9", cats:["uro"] },
+
+  { name:"Set BK Medical Seed Probe Gold", hanel:"6", side:"A", shelf:"4A", qty:"5", cats:["uro"] },
+  { name:"Set BK Medical Ultrasound Probe", hanel:"6", side:"A", shelf:"4A", qty:"1", cats:["uro"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 6 SIDE A — URO & ROBOTICS (Shelves 7A–12A)
+  // ══════════════════════════════════════════════
+  { name:"Pack DaVinci Xi", hanel:"6", side:"A", shelf:"8A", qty:"", cats:["uro","robotics"] },
+
+  { name:"Scope DaVinci Xi Endoscope 8mm 0°", hanel:"6", side:"A", shelf:"9A", qty:"6", cats:["uro","robotics"] },
+
+  { name:"Scope DaVinci Xi Endoscope 8mm 30°", hanel:"6", side:"A", shelf:"10A", qty:"7", cats:["uro","robotics"] },
+  { name:"Scope Thoracic DaVinci Xi Endoscope Plus 8mm 30°", hanel:"6", side:"A", shelf:"10A", qty:"1", cats:["uro","robotics"] },
+
+  { name:"Set Robotic D&C/RUMI", hanel:"6", side:"A", shelf:"11A", qty:"5", cats:["uro","robotics"] },
+  { name:"Set Robotic Gyn", hanel:"6", side:"A", shelf:"11A", qty:"1", cats:["uro","robotics"] },
+
+  { name:"Set DaVinci Xi Main", hanel:"6", side:"A", shelf:"12A", qty:"4", cats:["uro","robotics"] },
+  { name:"Set DaVinci Xi Procedure", hanel:"6", side:"A", shelf:"12A", qty:"6", cats:["uro","robotics"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 6 SIDE B — URO & ROBOTICS (Shelves 1B–6B)
+  // ══════════════════════════════════════════════
+  { name:"Scope R. Wolf Ureteroscope 4.5Fr Single Long", hanel:"6", side:"B", shelf:"1B", qty:"4", cats:["uro"] },
+  { name:"Scope R. Wolf Ureteroscope 4.5Fr Single Short", hanel:"6", side:"B", shelf:"1B", qty:"1", cats:["uro"] },
+  { name:"Scope R. Wolf Ureteroscope 6.5Fr Dual Long", hanel:"6", side:"B", shelf:"1B", qty:"3", cats:["uro"] },
+  { name:"Scope R. Wolf Ureteroscope 6.5Fr Dual Short", hanel:"6", side:"B", shelf:"1B", qty:"2", cats:["uro"] },
+  { name:"Scope R. Wolf Ureteroscope Digital Dual Flexible", hanel:"6", side:"B", shelf:"1B", qty:"3", cats:["uro"] },
+  { name:"Scope R. Wolf Ureteroscope Digital Single Flexible", hanel:"6", side:"B", shelf:"1B", qty:"3", cats:["uro"] },
+
+  { name:"Set R. Wolf Cysto (overflow)", hanel:"6", side:"B", shelf:"2B", qty:"Overflow", cats:["uro"] },
+
+  { name:"Set Dilator Heyman Goodwin Sounds", hanel:"6", side:"B", shelf:"3B", qty:"3", cats:["uro"] },
+  { name:"Set Dilator Lefort Sound", hanel:"6", side:"B", shelf:"3B", qty:"0", cats:["uro"] },
+  { name:"Set Dilator Van Buren Sound", hanel:"6", side:"B", shelf:"3B", qty:"3", cats:["uro"] },
+  { name:"Set Green Light Laser", hanel:"6", side:"B", shelf:"3B", qty:"1", cats:["uro"] },
+  { name:"Set R. Wolf Aspiration Injection", hanel:"6", side:"B", shelf:"3B", qty:"1", cats:["uro"] },
+  { name:"Set Urology Plastics", hanel:"6", side:"B", shelf:"3B", qty:"5", cats:["uro"] },
+
+  { name:"Pack Cysto Bugbee & Cord", hanel:"6", side:"B", shelf:"4B", qty:"0", cats:["uro"] },
+  { name:"Urology Pill Packs", hanel:"6", side:"B", shelf:"4B", qty:"", cats:["uro"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 6 SIDE B — URO & ROBOTICS (Shelves 7B–12B)
+  // ══════════════════════════════════════════════
+  { name:"Pack DaVinci Xi (8B)", hanel:"6", side:"B", shelf:"8B", qty:"", cats:["uro","robotics"] },
+
+  { name:"Camera Thoracic DaVinci Xi", hanel:"6", side:"B", shelf:"9B", qty:"2", cats:["uro","robotics"] },
+  { name:"Scope Robotic Stryker 5.5mm 0° & 30°", hanel:"6", side:"B", shelf:"9B", qty:"2", cats:["uro","robotics"] },
+  { name:"Scope DaVinci Xi Endoscope 8mm 0° (overflow)", hanel:"6", side:"B", shelf:"9B", qty:"Overflow", cats:["uro","robotics"] },
+
+  { name:"Scope DaVinci Xi Endoscope 8mm 30° (overflow)", hanel:"6", side:"B", shelf:"10B", qty:"Overflow", cats:["uro","robotics"] },
+
+  { name:"Set Robotic Thoracic Basic", hanel:"6", side:"B", shelf:"11B", qty:"6", cats:["uro","robotics"] },
+
+  { name:"Set DaVinci Xi Accessory", hanel:"6", side:"B", shelf:"12B", qty:"3", cats:["uro","robotics"] },
+  { name:"Set DaVinci Xi Thoracic", hanel:"6", side:"B", shelf:"12B", qty:"6", cats:["uro","robotics"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 8 SIDE A — GYN (Shelves 1A–6A)
+  // ══════════════════════════════════════════════
+  { name:"Set Sonata Ultrasound Probe Cord", hanel:"8", side:"A", shelf:"1A", qty:"7", cats:["gyn"] },
+  { name:"Set Sonata Ultrasound Probe", hanel:"8", side:"A", shelf:"1A", qty:"5", cats:["gyn"] },
+  { name:"Catheter Guide", hanel:"8", side:"A", shelf:"1A", qty:"", cats:["gyn"] },
+  { name:"Set Lap Laser", hanel:"8", side:"A", shelf:"2A", qty:"12", cats:["gyn"] },
+  { name:"Laser Scope", hanel:"8", side:"A", shelf:"2A", qty:"", cats:["gyn"] },
+  { name:"Set Hysterectomy", hanel:"8", side:"A", shelf:"3A", qty:"13", cats:["gyn"] },
+  { name:"Set Hysteroscopy/D&C", hanel:"8", side:"A", shelf:"4A", qty:"13", cats:["gyn"] },
+  { name:"Set Gyn Resectoscope 2.9mm", hanel:"8", side:"A", shelf:"4A", qty:"8", cats:["gyn"] },
+  { name:"Set D&E", hanel:"8", side:"A", shelf:"5A", qty:"9", cats:["gyn"] },
+  { name:"Set D&C X-Long", hanel:"8", side:"A", shelf:"5A", qty:"2", cats:["gyn"] },
+  { name:"Set Gyn Minor", hanel:"8", side:"A", shelf:"6A", qty:"11", cats:["gyn"] },
+  { name:"Set Cervical Cerclage", hanel:"8", side:"A", shelf:"6A", qty:"1", cats:["gyn"] },
+  { name:"Set Omni Hysteroscopy", hanel:"8", side:"A", shelf:"7A", qty:"12", cats:["gyn"] },
+  { name:"Set Vaginal Bookwalter Retractor", hanel:"8", side:"A", shelf:"7A", qty:"2", cats:["gyn"] },
+  { name:"Mayo Tray", hanel:"8", side:"A", shelf:"8A", qty:"", cats:["gyn"] },
+  { name:"Heaney Simon Retractor", hanel:"8", side:"A", shelf:"8A", qty:"", cats:["gyn"] },
+  { name:"Gyn Balfour Extended", hanel:"8", side:"A", shelf:"9A", qty:"", cats:["gyn"] },
+  { name:"Lahey", hanel:"8", side:"A", shelf:"9A", qty:"", cats:["gyn"] },
+  { name:"Gyn Randall Clamp", hanel:"8", side:"A", shelf:"9A", qty:"", cats:["gyn"] },
+  { name:"Singley Tissue Forcep", hanel:"8", side:"A", shelf:"9A", qty:"", cats:["gyn"] },
+  { name:"Kim Sling Set", hanel:"8", side:"A", shelf:"10A", qty:"", cats:["gyn"] },
+  { name:"Gyn Peel Pack", hanel:"8", side:"A", shelf:"10A", qty:"", cats:["gyn","peelpacks"] },
+  { name:"Crochet Hook", hanel:"8", side:"A", shelf:"10A", qty:"", cats:["gyn"] },
+  { name:"Heaney Clamp", hanel:"8", side:"A", shelf:"11A", qty:"", cats:["gyn"] },
+  { name:"Masterson Clamp", hanel:"8", side:"A", shelf:"11A", qty:"", cats:["gyn"] },
+  { name:"Rogers Clamp", hanel:"8", side:"A", shelf:"11A", qty:"", cats:["gyn"] },
+  { name:"Hysterectomy Clamp", hanel:"8", side:"A", shelf:"11A", qty:"", cats:["gyn"] },
+  { name:"Jacobs Tenaculum", hanel:"8", side:"A", shelf:"11A", qty:"", cats:["gyn"] },
+  { name:"Zeppin Clamps", hanel:"8", side:"A", shelf:"11A", qty:"", cats:["gyn"] },
+  { name:"Gyn Hysteroscope Coagulator Set", hanel:"8", side:"A", shelf:"12A", qty:"", cats:["gyn"] },
+  { name:"Green Light Laser Set", hanel:"8", side:"A", shelf:"12A", qty:"", cats:["gyn"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 8 SIDE B — GYN (Shelves 1B–6B)
+  // ══════════════════════════════════════════════
+  { name:"Set Specula Vaginal Weighted", hanel:"8", side:"B", shelf:"1B", qty:"8", cats:["gyn"] },
+  { name:"Set RUMI Silver Cups (For Use W/Harmonic Scalpel Only)", hanel:"8", side:"B", shelf:"1B", qty:"2", cats:["gyn"] },
+  { name:"Set RUMI Blue Cups (For Use W/Gyrus)", hanel:"8", side:"B", shelf:"1B", qty:"2", cats:["gyn"] },
+  { name:"Set Gyn Guttman Retractor", hanel:"8", side:"B", shelf:"1B", qty:"1", cats:["gyn"] },
+  { name:"Silver RUMI Cups", hanel:"8", side:"B", shelf:"1B", qty:"", cats:["gyn"] },
+  { name:"Set Gyn/Uro Retractor Breisky Navratil Vaginal 25X130mm", hanel:"8", side:"B", shelf:"2B", qty:"5", cats:["gyn","uro"] },
+  { name:"Set Gyn Forsyth Dunn Laparoscopic Micro Needle Holders", hanel:"8", side:"B", shelf:"2B", qty:"3", cats:["gyn"] },
+  { name:"Set Retractor Breisky Navratil Vaginal 30X100mm 12in", hanel:"8", side:"B", shelf:"2B", qty:"2", cats:["gyn"] },
+  { name:"Set Gyn/URO Retractor Breisky Navratil Vaginal 35X160mm 12 1/2in", hanel:"8", side:"B", shelf:"2B", qty:"1", cats:["gyn","uro"] },
+  { name:"Set Allis Clamps", hanel:"8", side:"B", shelf:"2B", qty:"1", cats:["gyn"] },
+  { name:"Set PPH", hanel:"8", side:"B", shelf:"2B", qty:"1", cats:["gyn"] },
+  { name:"Set Hysterectomy X-Long", hanel:"8", side:"B", shelf:"2B", qty:"1", cats:["gyn"] },
+  { name:"Set Clamp Pratt Smith Hemostatic T-Shape Concave 6in", hanel:"8", side:"B", shelf:"3B", qty:"6", cats:["gyn"] },
+  { name:"Set Dr MacDiarmid", hanel:"8", side:"B", shelf:"3B", qty:"1", cats:["gyn"] },
+  { name:"Set Lone Star Retractor", hanel:"8", side:"B", shelf:"3B", qty:"1", cats:["gyn"] },
+  { name:"Sims Retractor", hanel:"8", side:"B", shelf:"3B", qty:"", cats:["gyn"] },
+  { name:"Gyn Sizer", hanel:"8", side:"B", shelf:"3B", qty:"", cats:["gyn"] },
+  { name:"Rainbow Tisler", hanel:"8", side:"B", shelf:"3B", qty:"", cats:["gyn"] },
+  { name:"Kervorkian Curette", hanel:"8", side:"B", shelf:"3B", qty:"", cats:["gyn"] },
+  { name:"Set Dilators Hegar Half Size / Lefort Sounds", hanel:"8", side:"B", shelf:"4B", qty:"4", cats:["gyn"] },
+  { name:"Set O'Sullivan O'Conner Small Ring", hanel:"8", side:"B", shelf:"4B", qty:"2", cats:["gyn"] },
+  { name:"Set Dilators Pratt", hanel:"8", side:"B", shelf:"4B", qty:"1", cats:["gyn"] },
+  { name:"Set O'Sullivan O'Conner Large Ring", hanel:"8", side:"B", shelf:"4B", qty:"5", cats:["gyn"] },
+  { name:"Set Dilators Hegar", hanel:"8", side:"B", shelf:"4B", qty:"3", cats:["gyn"] },
+  { name:"Set Dilators Hank", hanel:"8", side:"B", shelf:"4B", qty:"3", cats:["gyn"] },
+  { name:"Set Dilator Walther Sounds", hanel:"8", side:"B", shelf:"4B", qty:"0", cats:["gyn"] },
+  { name:"Set Conization/LEEP/Colposcopy", hanel:"8", side:"B", shelf:"5B", qty:"4", cats:["gyn"] },
+  { name:"Set Gyn Kahn Cannula", hanel:"8", side:"B", shelf:"5B", qty:"5", cats:["gyn"] },
+  { name:"Set R. Wolf Morcellator Tenaculum", hanel:"8", side:"B", shelf:"5B", qty:"4", cats:["gyn"] },
+  { name:"Set Post Partum Tubal", hanel:"8", side:"B", shelf:"5B", qty:"2", cats:["gyn"] },
+  { name:"Set Gyn Lina Tenaculum", hanel:"8", side:"B", shelf:"5B", qty:"1", cats:["gyn"] },
+  { name:"Set Second Trimester", hanel:"8", side:"B", shelf:"6B", qty:"4", cats:["gyn"] },
+  { name:"Tenaculum / Hulka Corkscrew", hanel:"8", side:"B", shelf:"6B", qty:"", cats:["gyn"] },
+  { name:"Sims Curette Uterine", hanel:"8", side:"B", shelf:"6B", qty:"", cats:["gyn"] },
+  { name:"Uterine Sound / Sims", hanel:"8", side:"B", shelf:"6B", qty:"", cats:["gyn"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 8 SIDE B — GYN (Shelves 7B–12B)
+  // ══════════════════════════════════════════════
+  { name:"Set Gyn Sheath & Obturator 19.5Fr", hanel:"8", side:"B", shelf:"7B", qty:"9", cats:["gyn"] },
+  { name:"19.5Fr Peel Packs", hanel:"8", side:"B", shelf:"7B", qty:"", cats:["gyn","peelpacks"] },
+  { name:"Speculums / LEEP", hanel:"8", side:"B", shelf:"8B", qty:"", cats:["gyn"] },
+  { name:"Sidewall Retractor", hanel:"8", side:"B", shelf:"8B", qty:"", cats:["gyn"] },
+  { name:"Vaginal Stent", hanel:"8", side:"B", shelf:"8B", qty:"", cats:["gyn"] },
+  { name:"Jackson Vaginal Retractor", hanel:"8", side:"B", shelf:"8B", qty:"", cats:["gyn"] },
+  { name:"Filshie Clip Applicator", hanel:"8", side:"B", shelf:"9B", qty:"", cats:["gyn"] },
+  { name:"Probe Long", hanel:"8", side:"B", shelf:"9B", qty:"", cats:["gyn"] },
+  { name:"Parrot Needle Holder", hanel:"8", side:"B", shelf:"9B", qty:"", cats:["gyn"] },
+  { name:"Needle Holders (Gyn)", hanel:"8", side:"B", shelf:"9B", qty:"", cats:["gyn"] },
+  { name:"CO2 Peel Pack", hanel:"8", side:"B", shelf:"9B", qty:"", cats:["gyn","peelpacks"] },
+  { name:"Caps and Acorns", hanel:"8", side:"B", shelf:"10B", qty:"", cats:["gyn"] },
+  { name:"Gyn Peel Packs", hanel:"8", side:"B", shelf:"10B", qty:"", cats:["gyn","peelpacks"] },
+  { name:"Spoons", hanel:"8", side:"B", shelf:"11B", qty:"", cats:["gyn"] },
+  { name:"Dr Cousin Schweizer", hanel:"8", side:"B", shelf:"11B", qty:"", cats:["gyn"] },
+  { name:"Dr Schroder Needle Holder", hanel:"8", side:"B", shelf:"11B", qty:"", cats:["gyn"] },
+  { name:"Monopolar Cords", hanel:"8", side:"B", shelf:"12B", qty:"", cats:["gyn"] },
+  { name:"Covidien Cords", hanel:"8", side:"B", shelf:"12B", qty:"", cats:["gyn"] },
+  { name:"Gyn/Scope Adaptor", hanel:"8", side:"B", shelf:"12B", qty:"", cats:["gyn"] },
+  { name:"Gyn Beaver Knife", hanel:"8", side:"B", shelf:"12B", qty:"", cats:["gyn"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 9 SIDE A — VASCULAR
+  // ══════════════════════════════════════════════
+  { name:"Access Set", hanel:"9", side:"A", shelf:"1", qty:"", cats:["vascular"] },
+  { name:"Peripheral Set", hanel:"9", side:"A", shelf:"2", qty:"", cats:["vascular"] },
+  { name:"Carotid Set / Dr Early Clip Appliers / Dr Dickson Castros / Dr Cain's Scissors", hanel:"9", side:"A", shelf:"3", qty:"", cats:["vascular"] },
+  { name:"Chest Set", hanel:"9", side:"A", shelf:"4", qty:"", cats:["vascular","cvts"] },
+  { name:"Chest Supplement", hanel:"9", side:"A", shelf:"5", qty:"", cats:["vascular","cvts"] },
+  { name:"Amputation Set", hanel:"9", side:"A", shelf:"6", qty:"", cats:["vascular"] },
+  { name:"Aneurysm Set / Vascular OMNI", hanel:"9", side:"A", shelf:"7", qty:"", cats:["vascular"] },
+  { name:"Aneurysm Retractor / Walter Attachment", hanel:"9", side:"A", shelf:"8", qty:"", cats:["vascular"] },
+  { name:"Mediastinoscopy Set / Video Mediastinoscopy", hanel:"9", side:"A", shelf:"9", qty:"", cats:["vascular","cvts"] },
+  { name:"Thoracoscopy Set / Vascular Tunneler Long & Short / CVTS Valvuloomes", hanel:"9", side:"A", shelf:"10", qty:"", cats:["vascular","cvts"] },
+  { name:"Dialysis Catheter Set / Angiovac Set / ECMO Set", hanel:"9", side:"A", shelf:"11", qty:"", cats:["vascular","cvts"] },
+  { name:"Poly Trak Retractor / Bariatric Vascular / Trauma Chest Set / Procurement Tray 1&2", hanel:"9", side:"A", shelf:"12", qty:"", cats:["vascular","cvts"] },
+
+  // ══════════════════════════════════════════════
+  // HANEL 9 SIDE B — OPEN HEART
+  // ══════════════════════════════════════════════
+  { name:"Dr Bartle / Dr Hendrickson / Dr Su / Dr LightFoot Set / Dr LightFoot Mammary / Dr LightFoot Chest Set", hanel:"9", side:"B", shelf:"1", qty:"", cats:["cvts"] },
+  { name:"Peds Defib Paddles / Adult Defib Paddles / Endovein / Open Heart Light Handles / Surgi Slush / Doppler Cords", hanel:"9", side:"B", shelf:"2", qty:"", cats:["cvts"] },
+  { name:"Open Heart Sternal Saw / Open Heart Leg Tray", hanel:"9", side:"B", shelf:"3", qty:"", cats:["cvts"] },
+  { name:"Coronary Set", hanel:"9", side:"B", shelf:"4", qty:"", cats:["cvts"] },
+  { name:"Open Heart Set", hanel:"9", side:"B", shelf:"5", qty:"", cats:["cvts"] },
+  { name:"Open Heart Graduates / Ankeny Retractor / Ankeny Blades / Dr Fields Henly Popliteral Retractor", hanel:"9", side:"B", shelf:"6", qty:"", cats:["cvts"] },
+  { name:"Valve Set / Koros Mitral Valve Retractor", hanel:"9", side:"B", shelf:"7", qty:"", cats:["cvts"] },
+  { name:"Tavr Set / ECMO Set / DaVinci Procedure / Robotic D/C RUMI", hanel:"9", side:"B", shelf:"8", qty:"", cats:["cvts","robotics"] },
+  { name:"Rultract Retractor / Rultract Extras", hanel:"9", side:"B", shelf:"9", qty:"", cats:["cvts"] },
+  { name:"Genessee / Octobase / Heartmate / DaVinci Pro", hanel:"9", side:"B", shelf:"10", qty:"", cats:["cvts","robotics"] },
+  { name:"Aortic Valve Minimally Invasive / Minimally Invasive Mitral Valve / Minimally Invasive Valve Retractor", hanel:"9", side:"B", shelf:"11", qty:"", cats:["cvts"] },
+  { name:"LVAD 3 Long / Open Heartmate", hanel:"9", side:"B", shelf:"12", qty:"", cats:["cvts"] },
+];
+
+// ── UI Logic ────────────────────────────────────────────────────────────────
+const catInfo = {
+  neuro:     { label:"Neuro",      cls:"cat-neuro",     color:"#9d60f0" },
+  ortho:     { label:"Ortho",      cls:"cat-ortho",     color:"#40c060" },
+  gen:       { label:"Gen",        cls:"cat-gen",       color:"#d0a020" },
+  cvts:      { label:"CVTS",       cls:"cat-cvts",      color:"#f06060" },
+  peelpacks: { label:"Peel-Packs", cls:"cat-peelpacks", color:"#40a0d0" },
+  spine:     { label:"Spine",      cls:"cat-spine",     color:"#a060e0" },
+  vascular:  { label:"Vascular",   cls:"cat-vascular",  color:"#f08040" },
+  ent:       { label:"ENT",        cls:"cat-ent",       color:"#c0c040" },
+  lap:       { label:"Lap",        cls:"cat-lap",       color:"#40d0c0" },
+  gyn:       { label:"Gyn",        cls:"cat-gyn",       color:"#f060a0" },
+  uro:       { label:"Uro",        cls:"cat-uro",       color:"#40c0f0" },
+  robotics:  { label:"Robotics",   cls:"cat-robotics",  color:"#c080f0" },
+  eye:       { label:"Eye",        cls:"cat-eye",       color:"#d060d0" },
+};
+
+let activeFilter = "all";
+const searchInput = document.getElementById("searchInput");
+const resultsDiv  = document.getElementById("results");
+const countDiv    = document.getElementById("results-count");
+
+function highlight(text, query) {
+  if (!query) return text;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
+}
+
+function locationLabel(item) {
+  const h = `Hanel ${item.hanel}`;
+  const s = item.side ? ` Side ${item.side}` : "";
+  const sh = item.shelf ? ` · Shelf ${item.shelf}` : "";
+  return { hanel: h + s, shelf: sh.replace(" · ", "") };
+}
+
+function render() {
+  const q = searchInput.value.trim().toLowerCase();
+  const words = q ? q.split(/\s+/) : [];
+
+  let filtered = DB.filter(item => {
+    const catMatch = activeFilter === "all" || item.cats.includes(activeFilter);
+    if (!catMatch) return false;
+    if (!words.length) return true;
+    const haystack = item.name.toLowerCase();
+    return words.every(w => haystack.includes(w));
+  });
+
+  countDiv.textContent = filtered.length
+    ? `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`
+    : "";
+
+  if (!filtered.length) {
+    resultsDiv.innerHTML = `<div class="no-results"><div class="icon">🔍</div><p>No items found.<br>Try a different search or filter.</p></div>`;
+    return;
+  }
+
+  resultsDiv.innerHTML = filtered.map(item => {
+    const loc = locationLabel(item);
+    const isOverflow = item.qty === "Overflow" || item.qty === "overflow";
+    const qtyHtml = item.qty
+      ? `<span class="qty-badge${isOverflow ? ' overflow' : ''}">Qty: ${item.qty}</span>`
+      : "";
+
+    const catTags = item.cats.map(c => {
+      const ci = catInfo[c];
+      return ci ? `<span class="cat-tag ${ci.cls}">${ci.label}</span>` : "";
+    }).join("");
+
+    return `
+      <div class="result-card">
+        <div class="card-top">
+          <div class="item-name">${highlight(item.name, q)}</div>
+          ${qtyHtml}
+        </div>
+        <div class="location-row">
+          <span class="loc-tag">
+            <span class="hanel-label">${loc.hanel}</span>
+            ${loc.shelf ? `<span class="shelf-label">· ${loc.shelf}</span>` : ""}
+          </span>
+          ${catTags}
+        </div>
+      </div>`;
+  }).join("");
+}
+
+// Filter buttons
+document.getElementById("filterBar").addEventListener("click", e => {
+  const btn = e.target.closest(".filter-btn");
+  if (!btn) return;
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  activeFilter = btn.dataset.filter;
+  render();
+});
+
+searchInput.addEventListener("input", render);
+
+// Initial render — show all
+render();
+</script>
+</body>
+</html>
